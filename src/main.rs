@@ -187,8 +187,7 @@ impl Food {
     fn produce() -> Self {
         let gen = || {
             let mut rng = rand::thread_rng();
-            let (l, h) = (0, 13);
-            rng.gen_range(l, h)
+            rng.gen_range(0, 13)
         };
         let (x, y) = (gen(), gen());
         Block::new(BLOCK_SIZE * x as f64, BLOCK_SIZE * y as f64, BLOCK_SIZE, BLOCK_SIZE)
