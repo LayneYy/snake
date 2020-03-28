@@ -7,8 +7,13 @@ use piston_window::*;
 use rand::Rng;
 use types::Color;
 
+//蛇的颜色
 const SNAKE_COLOR: Color = [0.73, 0.23, 0.60, 1.0];
+//食物的颜色
+const FOOD_COLOR: Color = [1.00, 1.00, 0.00, 1.0];
+//块的大小
 const BLOCK_SIZE: f64 = 50.0;
+//浮点计算允许的最大精度差
 const FLOAT: f64 = 0.0001;
 
 fn main() {
@@ -38,7 +43,7 @@ fn main() {
         window.draw_2d(&e, |c, g, _d| {
             clear([0.5, 1.0, 0.5, 1.0], g);
             snake.draw(c, g);
-            food.draw(c, g)
+            food.draw(c, g, FOOD_COLOR)
         });
     }
 }
@@ -66,7 +71,7 @@ impl Snake {
     }
     //画蛇
     fn draw(&self, c: Context, g: &mut G2d) {
-        self.body.iter().for_each(|block| block.draw(c, g));
+        self.body.iter().for_each(|block| block.draw(c, g, SNAKE_COLOR));
     }
     //移动蛇
     fn do_move(&mut self) {
@@ -76,6 +81,7 @@ impl Snake {
             (*x, *y)
         };
         let mut tail = body.pop_back().unwrap();
+
         match self.direction {
             Direction::Up => {
                 tail.x = x;
@@ -166,10 +172,10 @@ impl Block {
         Self { x, y, w, h }
     }
     //画一个块
-    fn draw(&self, c: Context, g: &mut G2d) {
-        let Block { x, y, w, h } = self;
-        rectangle(SNAKE_COLOR,
-                  [*x, *y, *w, *h],
+    fn draw(&self, c: Context, g: &mut G2d, color: Color) {
+        let Block { x, y, w, h } = *self;
+        rectangle(color,
+                  [x, y, w, h],
                   c.transform,
                   g);
     }
