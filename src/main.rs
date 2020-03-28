@@ -1,31 +1,39 @@
 extern crate piston_window;
 
-use piston_window::*;
-use types::Color;
 use std::collections::LinkedList;
-use rand::{thread_rng, Rng};
+use std::time::{Duration, SystemTime};
+
+use piston_window::*;
+use rand::Rng;
+use types::Color;
 
 const SNAKE_COLOR: Color = [0.73, 0.23, 0.60, 1.0];
 const BLOCK_SIZE: f64 = 50.0;
+const FLOAT: f64 = 0.0001;
 
 fn main() {
     let mut window: PistonWindow = WindowSettings::new("layne's snake", (700, 700))
         .exit_on_esc(true)
         .build()
         .unwrap_or_else(|e| { panic!("Failed to build Window: {}", e) });
+
     let mut snake = Snake::new();
     let mut food: Food = Food::produce();
+
     while let Some(e) = window.next() {
-        if let Some(button_args) = e.button_args() {
-            if button_args.state == ButtonState::Press {
-                if let Button::Keyboard(key) = button_args.button {
-                    snake.do_move(trans_key_to_direction(key));
-                    if food.can_be_eaten(&snake) {
-                        snake.eat(food);
-                        food = Food::produce();
-                    }
+        if let Some(button) = e.press_args() {
+            if let Button::Keyboard(key) = button {
+                if let Some(d) = trans_key_to_direction(key) {
+                    snake.ch_direction(d);
+                    snake.do_move();
                 }
             }
+        } else if snake.pass_secs(1) {
+            snake.do_move();
+        }
+        if food.can_be_eaten(&snake) {
+            snake.eat(food);
+            food = Food::produce();
         }
         window.draw_2d(&e, |c, g, _d| {
             clear([0.5, 1.0, 0.5, 1.0], g);
@@ -38,6 +46,7 @@ fn main() {
 struct Snake {
     body: LinkedList<Block>,
     direction: Direction,
+    last_move_time: SystemTime,
 }
 
 impl Snake {
@@ -50,45 +59,49 @@ impl Snake {
         body.push_front(block1);
         body.push_front(block2);
         body.push_front(block3);
-        Snake { body, direction: Direction::Right }
+        Snake { body, direction: Direction::Right, last_move_time: SystemTime::now() }
     }
-
+    fn ch_direction(&mut self, direction: Direction) {
+        self.direction = direction;
+    }
     //画蛇
     fn draw(&self, c: Context, g: &mut G2d) {
         self.body.iter().for_each(|block| block.draw(c, g));
     }
-
     //移动蛇
-    fn do_move(&mut self, d: Option<Direction>) {
-        if let Some(direction) = d {
-            let ref mut body = self.body;
-            let (x, y) = {
-                let Block { x, y, w: _, h: _ } = body.front().unwrap();
-                (*x, *y)
-            };
-            let mut tail = body.pop_back().unwrap();
-            match direction {
-                Direction::Up => {
-                    tail.x = x;
-                    tail.y = y - BLOCK_SIZE;
-                }
-                Direction::Down => {
-                    tail.x = x;
-                    tail.y = y + BLOCK_SIZE;
-                }
-                Direction::Left => {
-                    tail.y = y;
-                    tail.x = x - BLOCK_SIZE;
-                }
-                Direction::Right => {
-                    tail.y = y;
-                    tail.x = x + BLOCK_SIZE;
-                }
+    fn do_move(&mut self) {
+        let ref mut body = self.body;
+        let (x, y) = {
+            let Block { x, y, w: _, h: _ } = body.front().unwrap();
+            (*x, *y)
+        };
+        let mut tail = body.pop_back().unwrap();
+        match self.direction {
+            Direction::Up => {
+                tail.x = x;
+                tail.y = y - BLOCK_SIZE;
             }
-            self.direction = direction;
-            body.push_front(tail);
+            Direction::Down => {
+                tail.x = x;
+                tail.y = y + BLOCK_SIZE;
+            }
+            Direction::Left => {
+                tail.y = y;
+                tail.x = x - BLOCK_SIZE;
+            }
+            Direction::Right => {
+                tail.y = y;
+                tail.x = x + BLOCK_SIZE;
+            }
         }
+        body.push_front(tail);
+        self.last_move_time = SystemTime::now();
     }
+
+    fn pass_secs(&self, secs: u64) -> bool {
+        SystemTime::now().duration_since(self.last_move_time).unwrap() >= Duration::from_secs(secs)
+    }
+
     fn eat(&mut self, mut block: Block) {
         let (x, y) = {
             let Block { x, y, w: _, h: _ } = self.body.front().unwrap();
@@ -169,16 +182,12 @@ impl Food {
         let mut rng = rand::thread_rng();
         let (l, h) = (0, 13);
         let (x, y) = (rng.gen_range(l, h), rng.gen_range(l, h));
-        println!("x is {},y is {}", x, y);
         Block::new(BLOCK_SIZE * x as f64, BLOCK_SIZE * y as f64, BLOCK_SIZE, BLOCK_SIZE)
     }
 
     fn can_be_eaten(&self, snake: &Snake) -> bool {
-        if let Block { x, y, w, h } = self {
-            let Block { x: x1, y: y1, w: _, h: _ } = snake.body.front().unwrap();
-            (*x - *x1).abs() < 0.001 && (*y - *y1).abs() < 0.001
-        } else {
-            false
-        }
+        let Block { x, y, w: _, h: _ } = *self;
+        let Block { x: x1, y: y1, w: _, h: _ } = *snake.body.front().unwrap();
+        (x - x1).abs() <= FLOAT && (y - y1).abs() <= FLOAT
     }
 }
