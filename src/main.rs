@@ -1,5 +1,3 @@
-extern crate piston_window;
-
 use std::collections::LinkedList;
 use std::time::{Duration, SystemTime};
 
@@ -29,11 +27,11 @@ fn main() {
         if let Some(button) = e.press_args() {
             if let Button::Keyboard(key) = button {
                 if let Some(d) = trans_key_to_direction(key) {
-                    snake.ch_direction(d);
+                    snake.change_direction(d);
                     snake.do_move();
                 }
             }
-        } else if snake.pass_secs(1) {
+        } else if snake.pass_millis(1000) {
             snake.do_move();
         }
         if food.can_be_eaten(&snake) {
@@ -66,7 +64,8 @@ impl Snake {
         body.push_front(block3);
         Snake { body, direction: Direction::Right, last_move_time: SystemTime::now() }
     }
-    fn ch_direction(&mut self, direction: Direction) {
+    //修改移动方向
+    fn change_direction(&mut self, direction: Direction) {
         self.direction = direction;
     }
     //画蛇
@@ -77,7 +76,7 @@ impl Snake {
     fn do_move(&mut self) {
         let ref mut body = self.body;
         let (x, y) = {
-            let Block { x, y, w: _, h: _ } = body.front().unwrap();
+            let Block { x, y, .. } = body.front().unwrap();
             (*x, *y)
         };
         let mut tail = body.pop_back().unwrap();
@@ -104,13 +103,13 @@ impl Snake {
         self.last_move_time = SystemTime::now();
     }
 
-    fn pass_secs(&self, secs: u64) -> bool {
-        SystemTime::now().duration_since(self.last_move_time).unwrap() >= Duration::from_secs(secs)
+    fn pass_millis(&self, millis: u64) -> bool {
+        SystemTime::now().duration_since(self.last_move_time).unwrap() >= Duration::from_millis(millis)
     }
 
     fn eat(&mut self, mut block: Block) {
         let (x, y) = {
-            let Block { x, y, w: _, h: _ } = self.body.front().unwrap();
+            let Block { x, y, .. } = self.body.front().unwrap();
             (*x, *y)
         };
         match self.direction {
@@ -154,7 +153,7 @@ fn trans_key_to_direction(key: Key) -> Option<Direction> {
     }
 }
 
-//组成身体的块,其实就是一个rectangle
+//块
 struct Block {
     //很轴
     x: f64,
@@ -194,8 +193,8 @@ impl Food {
     }
 
     fn can_be_eaten(&self, snake: &Snake) -> bool {
-        let Block { x, y, w: _, h: _ } = *self;
-        let Block { x: x1, y: y1, w: _, h: _ } = *snake.body.front().unwrap();
+        let Block { x, y, .. } = *self;
+        let Block { x: x1, y: y1, .. } = *snake.body.front().unwrap();
         (x - x1).abs() <= FLOAT && (y - y1).abs() <= FLOAT
     }
 }
